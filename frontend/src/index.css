@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/* You can keep your body styles below that line */
+body {
+  @apply bg-slate-950 text-white;
+  margin: 0;
+}
+
+@keyframes breathing {
+
+  0%,
+  100% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 5px rgba(52, 211, 153, 0.2));
+    opacity: 0.9;
+  }
+
+  50% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 15px rgba(52, 211, 153, 0.4));
+    opacity: 1;
+  }
+}
+
+@keyframes map-glow {
+
+  0%,
+  100% {
+    opacity: 0.1;
+    transform: scale(1.4);
+  }
+
+  50% {
+    opacity: 0.2;
+    transform: scale(1.6);
+  }
+}
+
+@keyframes float-up-fade {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+
+  10% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+}
+
+.animate-breathing {
+  animation: breathing 4s ease-in-out infinite;
+}
+
+.animate-map-glow {
+  animation: map-glow 5s ease-in-out infinite;
+}
+
+.animate-float-up-fade {
+  animation: float-up-fade 1.5s ease-out forwards;
+}
