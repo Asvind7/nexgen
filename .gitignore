@@ -1,29 +1,90 @@
-# Node.js
-node_modules/
-dist/
-dist-ssr/
-*.local
+# --- General ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Custom.mxt
+Global.mxt
+Desktop.ini
+$RECYCLE.BIN/
+*.bak
+*.tmp
+*.temp
+*.log
 
-# Python
-.venv/
-__pycache__/
-*.py[cod]
-*$py.class
-
-# Environment
+# --- Environments & Secrets ---
 .env
 .env.local
 .env.*.local
+*.env
+auth.json
 
-# Databases
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.npm
+.eslintcache
+.stylelintcache
+.parcel-cache
+.next
+out/
+build/
+dist/
+dist-ssr/
+*.tsbuildinfo
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+bin/
+lib/
+include/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.pyo
+*.pyd
+.hypothesis/
+.pytest_cache/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# --- Databases ---
 *.db
+*.sqlite
 *.sqlite3
 
-# OS files
-.DS_Store
-Thumbs.db
+# --- IDEs ---
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
 
-# Project-specific
+# --- Project Specific ---
 audit_report.json
 backend/.env
 frontend/node_modules/
