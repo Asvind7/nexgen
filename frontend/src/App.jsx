@@ -12,6 +12,7 @@ import AuthScreen from './components/AuthScreen';
 import AppNavigation from './components/AppNavigation';
 import { generateSyllabus } from './services/CurriculumEngine';
 import XpReward from './components/XpReward';
+import { API_URL } from './config';
 import { Zap, Target, BookOpen, Sparkles, ChevronLeft, BrainCircuit, Code2, Heart, LayoutDashboard, Map as MapIcon, MessageSquare, Menu } from 'lucide-react'; // <--- Added Heart, Menu
 
 export default function App() {
@@ -92,7 +93,7 @@ export default function App() {
 
     // Sync to backend if authenticated
     if (isAuthenticated && userId) {
-      fetch('http://localhost:8000/auth/sync', {
+      fetch(`${API_URL}/auth/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: userId, user_data: user })
@@ -215,6 +216,14 @@ export default function App() {
     }, 2000);
   };
 
+  // --- ADMIN AUTO-LEVELING ---
+  // Moved to useEffect to avoid re-render loops
+  useEffect(() => {
+    if (isAuthenticated && isAdmin && user.level === 'Unranked' && !pendingResult && !isGenerating) {
+      setPendingResult({ assessedLevel: 'Advanced', earnedXp: 0, focusAreas: [], avgTime: 0 });
+    }
+  }, [isAuthenticated, isAdmin, user.level, pendingResult, isGenerating]);
+
   // --- SCENARIO -1: AUTHENTICATION ---
   if (!isAuthenticated) return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
 
@@ -325,16 +334,7 @@ export default function App() {
               </div>
             </div>
           ) : user.level === 'Unranked' ? (
-            isAdmin ? (
-              (() => {
-                if (!pendingResult) {
-                  setPendingResult({ assessedLevel: 'Advanced', earnedXp: 0, focusAreas: [], avgTime: 0 });
-                }
-                return null;
-              })()
-            ) : (
-              <DiagnosticQuiz onComplete={handleQuizComplete} />
-            )
+            <DiagnosticQuiz onComplete={handleQuizComplete} />
           ) : (
             <>
               {!activeModule && (

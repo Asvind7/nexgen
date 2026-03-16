@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_URL } from '../../config';
 import {
     Heart, Zap, RefreshCw, Play, Shield, Map as MapIcon, Sparkles,
     Skull, CheckCircle, Lightbulb, HelpCircle, Code, ArrowLeft, ArrowRight
@@ -305,7 +306,7 @@ const BossArena = ({ onComplete, moduleTitle, hearts, setHearts, setXp, moduleId
         }
 
         try {
-            const response = await fetch('http://localhost:8000/execute', {
+            const response = await fetch(`${API_URL}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: code })
@@ -422,7 +423,7 @@ const BossArena = ({ onComplete, moduleTitle, hearts, setHearts, setXp, moduleId
         });
 
         try {
-            const response = await fetch('http://localhost:8000/execute', {
+            const response = await fetch(`${API_URL}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: fullTestScript })

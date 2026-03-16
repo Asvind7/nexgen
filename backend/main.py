@@ -4,6 +4,7 @@ import asyncio
 import uuid
 import contextlib
 import traceback
+from collections import deque
 from typing import List, Optional, Dict, Any
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,14 +30,18 @@ load_dotenv()
 class Config:
     API_TITLE = "NexGen High-Performance Backend"
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-    # UPDATED MODEL: Use Gemma 2 9B (Fallback)
+    # UPDATED MODEL: Use Gemini 3.1 Flash Lite Preview
     MODEL_NAME = "gemma-3-27b-it" 
     MAX_TOKENS = 1000
     TEMPERATURE = 0.7
+    # RATE LIMITS (Free Tier for Gemma 3 27B-it)
+    # Note: These are based on typical Google AI Studio free tier quotas
+    RPM_LIMIT = 15      # Requests Per Minute
+    TPM_LIMIT = 250000  # Tokens Per Minute
+    RPD_LIMIT = 500     # Requests Per Day
     HOST = "0.0.0.0"
-    PORT = 8000
+    PORT = int(os.getenv("PORT", 8000))
 
-import bcrypt
 
 # Initialize DB from separate file
 database.init_db()
@@ -91,6 +96,25 @@ try:
 except Exception as e:
     print(f"❌ Failed to initialize Google AI Client: {e}")
     client = None
+
+# --- RATE LIMITER ---
+class SimpleRateLimiter:
+    def __init__(self, rpm: int):
+        self.rpm = rpm
+        self.interval = 60.0 / rpm
+        self.lock = asyncio.Lock()
+        self.last_call = 0.0
+
+    async def wait(self):
+        async with self.lock:
+            now = asyncio.get_event_loop().time()
+            elapsed = now - self.last_call
+            if elapsed < self.interval:
+                wait_time = self.interval - elapsed
+                await asyncio.sleep(wait_time)
+            self.last_call = asyncio.get_event_loop().time()
+
+chat_limiter = SimpleRateLimiter(Config.RPM_LIMIT)
 
 # --- HELPERS ---
 def build_system_prompt(topic: str, level: str) -> str:
@@ -160,7 +184,6 @@ def _execute_safe(code: str, stdin: str = "") -> ExecutionResponse:
 @app.post("/auth/signup")
 async def signup(payload: SignupRequest):
     conn = database.get_db_connection()
-    cursor = conn.cursor()
     # Use centralized helper from database.py
     hashed_password = database.hash_password(payload.password)
     try:
@@ -182,7 +205,6 @@ async def signup(payload: SignupRequest):
 @app.post("/auth/login")
 async def login(payload: LoginRequest):
     conn = database.get_db_connection()
-    cursor = conn.cursor()
     with conn.cursor() as cursor:
         cursor.execute("SELECT password_hash, name, user_data, is_admin FROM users WHERE email = %s", (payload.email,))
         row = cursor.fetchone()
@@ -230,11 +252,17 @@ async def chat_endpoint(payload: ChatRequest):
         raise HTTPException(status_code=503, detail="AI Service Unauthorized")
 
     try:
+        # Rate limit check
+        await chat_limiter.wait()
+        
         # print(f"💬 Chat Request: Prompt Length={len(payload.prompt)}, Topic={payload.topic}")
+
 
         # 1. Prepare Context
         # Keep last 6 messages to maintain context window efficiency
-        recent_history = payload.history[-6:] if payload.history else []
+        recent_history = list(deque(payload.history, maxlen=6))
+
+
         
         # 2. Build Prompt — use custom override if provided (e.g. guided/master project mode)
         system_instruction = payload.system if payload.system else build_system_prompt(payload.topic, payload.level)
@@ -251,6 +279,11 @@ async def chat_endpoint(payload: ChatRequest):
 
         # 3. Inject System Instruction (V3 Fix for Gemma 27b/Gemini)
         # Merges system prompt into the first user message or adds it if history is empty
+        
+        # ADD JSON CONSTRAINT TO SYSTEM PROMPT if it looks like a structured request
+        if system_instruction and any(keyword in system_instruction.lower() for keyword in ["json", "output format", "schema"]):
+            system_instruction = str(system_instruction) + "\n\nIMPORTANT: YOU MUST OUTPUT VALID JSON ONLY. DO NOT INCLUDE ANY MARKDOWN CODE BLOCKS OR TEXT OUTSIDE THE JSON."
+
         if contents:
             if contents[0].role == "user":
                 original_text = contents[0].parts[0].text
@@ -275,19 +308,18 @@ async def chat_endpoint(payload: ChatRequest):
         )
         return {"response": response.text}
 
-    except exceptions.ResourceExhausted:
-         print("⚠️ Quota Limit Reached")
-         return {"response": "😓 Phew! My brain is overheating (Rate Limit). Give me 10 seconds to cool down! 🧊"}
-    
     except Exception as e:
+        # Check for 429/Resource Exhausted specifically in the error message or type
+        err_str = str(e).upper()
+        if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "QUOTA" in err_str:
+             print("⚠️ Quota Limit Reached (429)")
+             # Return a friendly structured error that the frontend extractJSON can handle if needed
+             # or a friendly string for general chat
+             return {"response": "😓 Phew! My brain is overheating (Rate Limit). Give me 10-20 seconds to cool down! 🧊"}
+        
         print(f"❌ GenAI Error Details: {traceback.format_exc()}")
         # Return a friendly error to the frontend instead of 500
         return {"response": "⚠️ My connection slipped! Please try asking again. 🔌"}
-
-    except BaseException as e:
-        print(f"🔥 CRITICAL ERROR: {e}")
-        traceback.print_exc()
-        raise e # Let detailed crash happen if it's system related, or catch?
 
 @app.post("/execute", response_model=ExecutionResponse)
 async def execute_code_endpoint(payload: ExecutionRequest):

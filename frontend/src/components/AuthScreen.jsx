@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Rocket, ShieldAlert, ArrowRight, Lock, Mail, User, CheckCircle2 } from 'lucide-react';
+import { API_URL } from '../config';
 
 export default function AuthScreen({ onAuthSuccess }) {
     const [isLogin, setIsLogin] = useState(true);
@@ -24,7 +25,7 @@ export default function AuthScreen({ onAuthSuccess }) {
             const endpoint = isLogin ? "/auth/login" : "/auth/signup";
             const body = isLogin ? { email, password } : { email, name, password };
 
-            const res = await fetch(`http://localhost:8000${endpoint}`, {
+            const res = await fetch(`${API_URL}${endpoint}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body)
@@ -39,7 +40,7 @@ export default function AuthScreen({ onAuthSuccess }) {
                     onAuthSuccess(data.user_data, email, data.name, data.is_admin || false);
                 } else {
                     // Auto-login after signup
-                    const loginRes = await fetch("http://localhost:8000/auth/login", {
+                    const loginRes = await fetch(`${API_URL}/auth/login`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ email, password })

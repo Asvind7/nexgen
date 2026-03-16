@@ -52,6 +52,11 @@ export const generateLessonContent = async (subLesson, userLevel, currentPersona
     try {
       const response = await askGemma(prompt, userLevel, [], `Lesson_${subLesson.title}`, subLesson.title);
 
+      // Handle backend rate limit or overload messages
+      if (typeof response === 'string' && response.includes("Rate Limit") || response.includes("overheating")) {
+        throw new Error("Backend is rate-limited or overloaded. Please wait and try again.");
+      }
+
       // 1. Check if the response is the known backend error string
       if (typeof response === 'string' && response.includes("⚠️")) {
         throw new Error(`Backend Connection Slipped: ${response}`);
@@ -77,8 +82,12 @@ export const generateLessonContent = async (subLesson, userLevel, currentPersona
       if (retries === 0) {
         console.error("All retries exhausted for Lesson Gen.");
         // Return a structured fallback object that your UI expects
+        let fallbackMsg = `Let's dive into **${subLesson.title}**! ${subLesson.context}. (System Note: AI connection unstable, using offline fallback).`;
+        if (error.message.includes("rate-limited") || error.message.includes("overloaded")) {
+          fallbackMsg = `Lesson generation temporarily unavailable due to backend rate limits. Please wait 10-20 seconds and try again.`;
+        }
         return {
-          message: `Let's dive into **${subLesson.title}**! ${subLesson.context}. (System Note: AI connection unstable, using offline fallback).`,
+          message: fallbackMsg,
           chips: ["Show me the code 🚀", "Try connecting again"]
         };
       }
@@ -249,6 +258,10 @@ export const evaluateAnswer = async (question, userAnswer, context, currentPerso
 
   try {
     const response = await askGemma(prompt, "Beginner", [], context, topic);
+    // Handle backend rate limit or overload messages
+    if (typeof response === 'string' && (response.includes("Rate Limit") || response.includes("overheating"))) {
+      return { message: "Evaluation temporarily unavailable due to backend rate limits. Please wait 10-20 seconds and try again.", example: null };
+    }
     return extractJSON(response);
   } catch (e) {
     console.error("evaluateAnswer Failed", e);

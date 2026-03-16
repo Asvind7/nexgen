@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { API_URL } from '../config';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-python';
@@ -54,7 +55,7 @@ export default function ProjectIDE({ onClose, title = 'Free Lab', initialCode = 
         try {
             const systemPrompt = `You are a helpful Python coding assistant. The user is working in a free coding lab. Help them with any Python questions clearly and concisely.`;
 
-            const res = await fetch('http://localhost:8000/chat', {
+            const res = await fetch(`${API_URL}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -82,7 +83,7 @@ export default function ProjectIDE({ onClose, title = 'Free Lab', initialCode = 
         setMobileTab('output');
         const stdin = stdinLines.filter(l => l.trim()).join('\n');
         try {
-            const res = await fetch('http://localhost:8000/execute', {
+            const res = await fetch(`${API_URL}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, stdin })

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { API_URL } from '../config';
 import Editor from 'react-simple-code-editor';
 import Prism from 'prismjs';
 import 'prismjs/components/prism-python';
@@ -70,7 +71,7 @@ STRICT ADHERENCE TO THESE RULES IS MANDATORY:
 5. Describe logic with metaphors or plain English steps (e.g., "First, get a value from the user and store it in a box").
 6. Conceptual Debugging: If they have an error, describe the logical mistake. Never tell them what key to press or word to type.`;
 
-            const res = await fetch('http://localhost:8000/chat', {
+            const res = await fetch(`${API_URL}/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -103,7 +104,7 @@ STRICT ADHERENCE TO THESE RULES IS MANDATORY:
         setMobileTab('output');
         const stdin = stdinLines.filter(l => l.trim()).join('\n');
         try {
-            const res = await fetch('http://localhost:8000/execute', {
+            const res = await fetch(`${API_URL}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code, stdin })

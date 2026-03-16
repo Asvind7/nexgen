@@ -1,6 +1,6 @@
 // src/services/GemmaService.js
 
-const API_URL = "http://localhost:8000"; // Points to main.py
+import { API_URL } from '../config';
 
 // 1. Check if Backend is Online
 export const initGemma = async () => {
@@ -22,7 +22,7 @@ export const askGemma = async (prompt, userLevel, history = [], context = "", to
     const payload = {
       prompt: context ? `Context: ${context}\n\nQuestion: ${prompt}` : prompt,
       level: userLevel || "Beginner",
-      topic: topic, 
+      topic: topic,
       history: history
     };
 
@@ -36,7 +36,7 @@ export const askGemma = async (prompt, userLevel, history = [], context = "", to
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`🚨 HTTP Error ${response.status} on /chat:\n`, errorText);
-      throw new Error(`HTTP ${response.status}`); 
+      throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
@@ -46,6 +46,6 @@ export const askGemma = async (prompt, userLevel, history = [], context = "", to
     // We log the error here, but still return the fallback string 
     // so your TeacherEngine's retry loop catches it!
     console.error("AI Network or Parsing Error:", error.message);
-    return "⚠️ My connection slipped! Please try asking again. 🔌"; 
+    return "⚠️ My connection slipped! Please try asking again. 🔌";
   }
 };

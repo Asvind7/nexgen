@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { API_URL } from '../config';
 import {
     ArrowLeft, Heart, Zap, Send, Code, Terminal, Cpu, ChevronUp, Sparkles, Skull, Play, Shield, CheckCircle, Map as MapIcon, RefreshCw, Lightbulb, Target, HelpCircle, Copy, Trophy, X
 } from 'lucide-react';
@@ -231,7 +232,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
         }
 
         try {
-            const response = await fetch('http://localhost:8000/execute', {
+            const response = await fetch(`${API_URL}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: code })
