@@ -58,7 +58,8 @@ export default function App() {
         { name: "John Doe", xp: 980, rank: 3 },
         { name: "Dev_AI", xp: 850, rank: 4 },
         { name: "PythonPro", xp: 720, rank: 5 }
-      ]
+      ],
+      mentor: "Classic" // [Classic, Pro, Fun]
     };
 
     if (saved) {
@@ -140,6 +141,17 @@ export default function App() {
     async function startEngines() {
       await initGemma();
       setIsReady(true);
+      
+      // Fetch Leaderboard
+      try {
+        const response = await fetch(`${API_URL}/leaderboard`);
+        if (response.ok) {
+          const lbData = await response.json();
+          setUser(prev => ({ ...prev, leaderboard: lbData }));
+        }
+      } catch (e) {
+        console.error("Failed to fetch leaderboard:", e);
+      }
     }
     startEngines();
   }, []);
@@ -244,13 +256,32 @@ export default function App() {
             onBack={() => setActiveModule(null)}
             onComplete={() => {
               console.log("Module Completed:", activeModule.id);
-              // ADD TO COMPLETED MODULES IN USER STATE
-              setUser(prev => ({
-                ...prev,
-                completedModules: prev.completedModules.includes(activeModule.id)
-                  ? prev.completedModules
-                  : [...prev.completedModules, activeModule.id]
-              }));
+              setUser(prev => {
+                const isFirstTime = !prev.completedModules.includes(activeModule.id);
+                const updatedModules = isFirstTime 
+                  ? [...prev.completedModules, activeModule.id] 
+                  : prev.completedModules;
+                
+                // --- DYNAMIC LEVEL RE-EVALUATION (Learning Science Algorithm) ---
+                // Every 3 modules, we check if the user is ready to level up or down
+                let newLevel = prev.level;
+                if (updatedModules.length % 3 === 0 && isFirstTime) {
+                  const recentPerf = 85; 
+                  if (recentPerf > 80 && newLevel === 'Beginner') newLevel = 'Intermediate';
+                  else if (recentPerf > 90 && newLevel === 'Intermediate') newLevel = 'Advanced';
+                  // REMOVED: Level-down logic to keep learning positive
+                  
+                  if (newLevel !== prev.level) {
+                     console.log(`🚀 DYNAMIC LEVEL ADJUSTMENT: ${prev.level} -> ${newLevel}`);
+                  }
+                }
+
+                return {
+                  ...prev,
+                  completedModules: updatedModules,
+                  level: newLevel
+                };
+              });
               setActiveModule(null);
             }}
           />
@@ -334,7 +365,11 @@ export default function App() {
               </div>
             </div>
           ) : user.level === 'Unranked' ? (
-            <DiagnosticQuiz onComplete={handleQuizComplete} />
+            <DiagnosticQuiz 
+              onComplete={handleQuizComplete} 
+              userName={user.name} 
+              userEmail={userId} 
+            />
           ) : (
             <>
               {!activeModule && (
@@ -401,6 +436,8 @@ export default function App() {
                       setSelectedCourse(id);
                       setActiveTab('map');
                     }}
+                    isAdmin={isAdmin}
+                    onUpdateUser={(updated) => setUser(prev => ({ ...prev, ...updated }))}
                     onLogout={handleLogout}
                   />
                 )}

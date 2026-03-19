@@ -29,7 +29,11 @@ const PERSONAS = {
 };
 
 // --- 2. ADAPTIVE PERSONA LOGIC ---
-export const getAdaptivePersona = (hearts) => {
+export const getAdaptivePersona = (hearts, manualMentor) => {
+  if (manualMentor && manualMentor !== "Classic") {
+    if (manualMentor === "Professional") return "BOSS";
+    if (manualMentor === "Playful") return "RIVAL";
+  }
   if (hearts <= 1) return "MENTOR";
   return "RIVAL";
 };
@@ -43,7 +47,7 @@ export const generateLessonContent = async (subLesson, userLevel, currentPersona
     ? "Acknowledge they are on their last heart, but keep it highly encouraging! 💖"
     : "Be energetic and positive! 🌟";
 
-  const prompt = PromptFactory.createLessonPrompt(subLesson, empathyNudge, userName, isCompleted);
+  const prompt = PromptFactory.createLessonPrompt(subLesson, userLevel, empathyNudge, persona, userName, isCompleted);
 
   let retries = 2; // Try up to 3 times total
   let delay = 1000; // Start with a 1-second delay
@@ -101,13 +105,12 @@ export const generateLessonContent = async (subLesson, userLevel, currentPersona
 };
 
 // --- 4. THE NO-SHAME DEBUGGER ---
-export const explainError = async (userCode, errorMsg, currentPersona, questionContext = "") => {
+export const explainError = async (userCode, errorMsg, currentPersona, userLevel = "Beginner", questionContext = "") => {
   const persona = PERSONAS[currentPersona];
-
-  const prompt = PromptFactory.createErrorPrompt(userCode, errorMsg, persona, questionContext);
+  const prompt = PromptFactory.createErrorPrompt(userCode, errorMsg, persona, userLevel, questionContext);
 
   try {
-    const response = await askGemma(prompt, "Beginner", [], "SupportiveDebugger", "Python Error");
+    const response = await askGemma(prompt, userLevel, [], "SupportiveDebugger", "Python Error");
     return extractJSON(response);
   } catch (e) {
     console.error("explainError Failed", e);
@@ -116,12 +119,12 @@ export const explainError = async (userCode, errorMsg, currentPersona, questionC
 };
 
 // --- 4.5. THE ADAPTIVE HINT GENERATOR (Smart Nudge) ---
-export const generateHint = async (activeSubLesson, userCode, currentPersona) => {
+export const generateHint = async (activeSubLesson, userCode, currentPersona, userLevel = "Beginner") => {
   const persona = PERSONAS[currentPersona];
 
-  const prompt = PromptFactory.createHintPrompt(activeSubLesson, userCode, persona);
+  const prompt = PromptFactory.createHintPrompt(activeSubLesson, userCode, persona, userLevel);
 
-  return await askGemma(prompt, "Beginner", [], "HintGenerator", activeSubLesson.title);
+  return await askGemma(prompt, userLevel, [], "HintGenerator", activeSubLesson.title);
 };
 
 // --- HELPER: ROBUST JSON EXTRACTOR ---
@@ -129,23 +132,22 @@ const extractJSON = (text) => {
   if (!text) throw new Error("Empty response received");
 
   // --- Step 1: Aggressive Cleaning ---
+  let cleaned = text.trim();
+
   // Strip markdown code blocks (even if nested or weirdly formatted)
-  let cleaned = text
-    .replace(/```json/gi, '')
-    .replace(/```python/gi, '')
-    .replace(/```/g, '')
-    .trim();
+  cleaned = cleaned.replace(/```json/gi, '').replace(/```python/gi, '').replace(/```/g, '').trim();
 
   try {
     // Attempt 1: Direct parse
     return JSON.parse(cleaned);
   } catch (e) {
-    // Attempt 2: Precise extraction between { and }
+    // Attempt 2: Precise extraction between the FIRST { and LAST }
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
 
     if (start === -1 || end === -1) {
-      throw new Error("No JSON object markers ({}) found in response.");
+      // If no JSON markers, maybe it's raw text? Try to wrap it.
+      return { message: text, chips: ["Continue 🚀"] };
     }
 
     const jsonStr = cleaned.slice(start, end + 1);
@@ -155,13 +157,14 @@ const extractJSON = (text) => {
       const sanitized = jsonStr
         .replace(/,\s*}/g, '}')  // Remove trailing commas in objects
         .replace(/,\s*]/g, ']')  // Remove trailing commas in arrays
-        .replace(/[\u201C\u201D]/g, '"'); // Replace smart quotes with straight quotes
-      // NOTE: Do NOT unescape \" here — that breaks valid JSON with escaped strings inside values
+        .replace(/[\u201C\u201D]/g, '"') // Replace smart quotes
+        .replace(/\n/g, ' '); // Newlines inside strings can break JSON.parse if not escaped
 
       return JSON.parse(sanitized);
     } catch (innerError) {
-      console.error("JSON Extraction Failed after sanitization attempt:", innerError);
-      throw new Error(`Invalid JSON structure: ${text.slice(0, 100)}...`);
+      console.error("Critical JSON Fallback Failed:", innerError);
+      // Last resort: Return as message
+      return { message: "I spoke with too much complexity! Here is what I meant: " + text.slice(0, 100), chips: ["Try again?"] };
     }
   }
 };
@@ -251,13 +254,13 @@ const EmergencyFallback = () => ({
 
 // --- 6. INTERACTIVE COMPANION (Restored) ---
 // Handles "Why?" and general questions with deep context
-export const evaluateAnswer = async (question, userAnswer, context, currentPersona, topic = "General Python", expectedCode = null, userName = "Asvind") => {
+export const evaluateAnswer = async (question, userAnswer, context, currentPersona, userLevel = "Beginner", topic = "General Python", expectedCode = null, userName = "Asvind") => {
   const persona = PERSONAS[currentPersona];
 
-  const prompt = PromptFactory.createEvaluationPrompt(question, userAnswer, context, persona, topic, expectedCode, userName);
+  const prompt = PromptFactory.createEvaluationPrompt(question, userAnswer, context, persona, topic, userLevel, expectedCode, userName);
 
   try {
-    const response = await askGemma(prompt, "Beginner", [], context, topic);
+    const response = await askGemma(prompt, userLevel, [], context, topic);
     // Handle backend rate limit or overload messages
     if (typeof response === 'string' && (response.includes("Rate Limit") || response.includes("overheating"))) {
       return { message: "Evaluation temporarily unavailable due to backend rate limits. Please wait 10-20 seconds and try again.", example: null };
@@ -270,12 +273,12 @@ export const evaluateAnswer = async (question, userAnswer, context, currentPerso
 };
 
 // --- 7. THE SEMANTIC GOAL-BASED GRADER (New AI Judge) ---
-export const gradeUserCode = async (userCode, topic, learningGoals, userOutput = "", expectedOutput = "") => {
+export const gradeUserCode = async (userCode, topic, learningGoals, userLevel = "Beginner", userOutput = "", expectedOutput = "") => {
   console.log("DEBUG: gradeUserCode received:", JSON.stringify(userCode));
   const prompt = PromptFactory.createGradingPrompt(userCode, topic, learningGoals);
 
   try {
-    const response = await askGemma(prompt, "Beginner", [], "AutoGrader", topic);
+    const response = await askGemma(prompt, userLevel, [], "AutoGrader", topic);
 
     // Safety: Check for Error string
     const resData = extractJSON(response);

@@ -1,94 +1,101 @@
-# NexGen: Detailed Project Documentation
+# NexGen: Technical Architecture & Deep-Dive Documentation 🧠🚀
 
-NexGen is an AI-native, gamified learning ecosystem designed to transform the way individuals learn Python. By moving away from static video lectures and towards an **Active Cognitive Architecture**, NexGen provides a deeply personalized experience that adapts in real-time to a learner's strengths, weaknesses, and psychological state.
-
----
-
-## 🏗️ System Architecture
-
-NexGen operates on a modern full-stack architecture, decoupling logic into specialized "Engines" that communicate via high-performance REST APIs.
-
-### 1. The Frontend (React/Vite)
-The client is responsible for the immersive UI, gamification state, and immediate feedback loops.
-- **State Management**: Uses React state and `localStorage` to persist user profiles, XP, hearts, and syllabus progress.
-- **Adaptive UI**: Components like `MasterIDE` and `JourneyMap` change their look-and-feel based on the user's progress and the "Phase" of the course they are currently in.
-- **Real-time Sanitization**: Implements client-side fail-safes to ensure the AI follows pedagogical rules (e.g., stripping code snippets in Master Mode).
-
-### 2. The Backend (FastAPI)
-A high-performance Python server that serves as the "Bridge" to the Neural Engine.
-- **Execution Sandbox**: Provides a secure `execute` endpoint that runs user-submitted Python code and returns standard output/errors.
-- **AI Gateway**: Connects to **Gemma 3 (Google GenAI)**. It handles prompt engineering, history management, and custom system instruction overrides.
-- **Persistence Layer**: Uses SQLite to synchronize user telemetry and progress between sessions.
+NexGen is an **AI-Native Pedagogy Orchestrator** designed to solve the "Passive Learning Problem" in coding education. It replaces static videos with an **Active Cognitive Combat** environment where every interaction is monitored, evaluated, and adapted by a distributed engine of LLMs and Machine Learning models.
 
 ---
 
-## 🧠 Core Intelligence Modules
+## 🏗️ 1. High-Level System Architecture
 
-### Teacher Engine (`TeacherEngine.js`)
-The "Brain" of the platform, responsible for:
-- **Persona Matrix**: Shifts the AI tutor's personality (Mentor vs. Rival) based on the user's "Hearts" (lives) remaining.
-- **Semantic Grader**: Uses AI to evaluate the *logic* of user code rather than just string matching. It can recognize correct solutions even if the user uses different variable names or formatting.
-- **The Psychiatrist (Diagnoser)**: Analyzes telemetry (time taken, error types, retries) to identify specific misconceptions (e.g., "confusing assignment with equality") and adjusts the next question's difficulty.
+NexGen follows a **Distributed Intelligence Pattern**, where the "Brain" is split between client-side pedagogical rules and server-side neural processing.
 
-### Curriculum Engine (`CurriculumEngine.js`)
-The "Architect" that builds the learning path:
-- **Phase-Based Generation**: Dividies Python into three distinct phases:
-    1. **Fundamentals**: Syntax, variables, and control flow.
-    2. **Architecture**: Data structures, RegEx, and File I/O.
-    3. **Deep Logic**: OOP, optimization, and Data Science.
-- **Adaptive Paths**: Based on the initial **Diagnostic Quiz**, the engine skips mastered topics and skips straight to the user's "Level of Optimal Challenge."
-
-### Prompt Factory (`PromptFactory.js`)
-The "Linguist" that crafts precise instructions for the AI:
-- **Context Injection**: Ensures the AI knows exactly what the user has previously learned so it doesn't repeat itself.
-- **Guardrails**: Hardcodes pedagogical rules (e.g., "Ask questions, don't give answers") into every API call.
+### **Core Stack**
+- **Frontend**: React 19 + Vite (High-Performance Client)
+- **Styling**: Tailwind CSS v4 (Glassmorphic Design System)
+- **Backend**: FastAPI (Python 3.10+)
+- **Database**: MySQL 8.0 (Persistent Telemetry & Auth)
+- **Neural Engine**: Google Gemini 3 Flash / Gemma 3 (Socratic Logic)
+- **Predictive ML**: Scikit-Learn Random Forest (Diagnostic Profiling)
 
 ---
 
-## 🎮 Key User Experiences
+## 🧠 2. The Intelligence Tier (Engines)
 
-### 1. The Journey Map
-A "Saga" style map (Candy Crush/Duolingo style) where users progress through regions. Each region concludes with a **Master Project**.
+### **A. Teacher Engine (`TeacherEngine.js`)**
+The `TeacherEngine` is the central mediator for all AI interactions.
+- **Semantic Logic Grading**: Unlike regex-based platforms, `TeacherEngine` uses GenAI to interpret the *intent* of code. If a trainee names a variable `animal` instead of `cat` but follows the logic, they pass.
+- **Robust JSON Extraction**: Implements an aggressive sanitization layer to extract structural response data from conversational AI outputs, ensuring the UI never breaks during LLM hallucinations.
+- **The Psychiatrist Logic**: Internally tracks user confusion by measuring "Traceback Frequency" and "Time-to-Correction" to adjust the Socratic tone.
 
-### 2. Master Projects & MasterIDE
-A premium, specialized environment for final exams:
-- **Project Mentor**: A Socratic AI locked into a "Zero-Code Policy." It helps you find the answer but never types it for you.
-- **Indigo Theme**: High-contrast, focused design to signify the importance of the challenge.
-- **Mobile Optimized**: Automatically defaults to the Mentor guidance view on phones to ensure the instructions are never missed.
+### **B. Prompt Factory (`PromptFactory.js`)**
+The "Pedagogical Guardrail" system.
+- **Context Injection**: Dynamically builds the "Memory" for the AI, ensuring it knows the student's current Phase (1, 2, or 3) so it doesn't use advanced syntax (like `decorators`) for a beginner asking about `if-statements`.
+- **Persona Matrix**:
+    - **BOSS**: Minimal praise, strict technical requirements, high pressure.
+    - **RIVAL**: Competitive, snarky but motivating, focuses on code efficiency.
+    - **MENTOR**: Warm, supportive, uses ELI5 (Explain Like I'm 5) analogies.
 
-### 3. Boss Arena
-A high-stakes coding session where users must solve challenges without losing their hearts. 
-- **The "Matchmaker"**: If you fail a specific concept twice, the AI pulls a "targeted remedial question" from the bank and injects it into your current queue.
+### **C. Predictive Engine (`train_model.py` / `/predict`)**
+Uses a **Random Forest Classifier** trained on student telemetry.
+- **Feature Set**: `score` (quiz performance), `accuracy` (pass/fail ratio), and `time_taken` (cognitive load).
+- **Output**: Predicts the student’s mastery level (Beginner, Intermediate, Advanced) with >95% accuracy based on a 70-user longitudinal dataset.
 
 ---
 
-## 🛠️ Local Development & Setup
+## ⚔️ 3. The Coding Combat Core (`BossArena.jsx`)
 
-### Prerequisites
-- **Python 3.10+**
-- **Node.js 18+**
-- **Google GenAI API Key**
+The "Boss Arena" is where learning happens through struggle.
+- **The Socratic Wrapper**: AI mentors are prohibited from providing copy-pasteable code. They must provide **Analogous Conceptual Examples**.
+- **Duolingo-Style Queue**:
+    - Every module is an array of challenges.
+    - Failed challenges are strategically "pushed" to the end of the queue.
+    - The Arena doesn't end until the queue is empty, ensuring 100% mastery of the module's target concepts.
+- **Live Terminal**: A custom implementation using `react-simple-code-editor` and a backend execution sandbox that mocks `input()` calls for interactive testing.
 
-### 1. Backend Setup
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -r requirements.txt
-# Create a .env file with GOOGLE_API_KEY=your_key_here
-python main.py
+---
+
+## 📊 4. Data Persistence & Analytics
+
+### **MySQL Database Schema**
+- **`users` Table**: Stores credentials using Bcrypt hashing and a JSON `user_data` blob.
+- **`user_data` Blob**: Contains the "Digital Twin" of the learner:
+    - `xp`: Total experience earned.
+    - `hearts`: Current health (gamified motivation).
+    - `streak`: Consecutive days of engagement.
+    - `completedModules`: Array of mastered competencies.
+
+### **Automated Retraining Loop**
+- **Event-Driven Training**: When a new user signs up or a diagnostic quiz is finished, the backend appends the data to `dataset.csv` and triggers an `asyncio.to_thread` process to retrain the ML model.
+- **Live Feedback**: This ensures the **Admin Dashboard** reflect the absolute latest student statistics in real-time.
+
+---
+
+## 📂 5. Project Directory Profile
+
+```text
+nexgen(web)/
+├── backend/
+│   ├── main.py              # FastAPI Engine & AI Orchestration
+│   ├── database.py          # MySQL Layer & Auth Logic
+│   └── models/              # Serialized .joblib ML Models
+│
+├── frontend/
+│   ├── src/
+│   │   ├── services/        # TeacherEngine & PromptFactory (The Brain)
+│   │   ├── components/      # BossArena & MLDashboard (The Body)
+│   │   └── data/            # 3-Phase Curriculum Matrix
+│
+└── model_training/
+    ├── train_model.py       # Random Forest Training Script
+    └── dataset.csv          # 70+ User Telemetry Dataset
 ```
 
-### 2. Frontend Setup
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The application will be available at `http://localhost:5173`.
-
 ---
 
-## 📊 Evaluation & Pedagogy
-NexGen uses the **Socratic Method** as its core teaching philosophy. Instead of providing the solution to a `SyntaxError`, the AI suggests: *"I see a red line at the end of your loop. In Python, how do we signify that a block of code is beginning?"* This forces the "Aha!" moment that leads to long-term memory retention.
+## 🚀 6. Pedagogical Values (The Viva Pitch)
+
+1. **Active Mastery**: Students cannot "pass" by luck. The Duolingo-style queue forces them to face their failures until they become comfortable.
+2. **Predictive Intervention**: The platform identifies "At-Risk" learners early through ML before they lose interest.
+3. **Cognitive Load Management**: The Persona Engine adapts the "Pressure" to keep the user in the **Flow State** (the sweet spot between boredom and anxiety).
+
+---
+*Documentation Version: 2.1 | Refinement: High Professional*

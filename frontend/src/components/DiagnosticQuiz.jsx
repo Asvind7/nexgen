@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Award, BrainCircuit, Clock } from 'lucide-react';
+import { Award, BrainCircuit, Clock, Sparkles } from 'lucide-react';
+import { predictLearnerLevel } from '../services/MLService';
 
 import { QUESTIONS as EXTERNAL_QUESTIONS } from '../data/questions';
 
@@ -9,7 +10,7 @@ const QUESTIONS = EXTERNAL_QUESTIONS.map(q => ({
   focus: q.difficulty // Use difficulty as a fallback for focus area
 }));
 
-export default function DiagnosticQuiz({ onComplete }) {
+export default function DiagnosticQuiz({ onComplete, userName, userEmail }) {
   const [currentQ, setCurrentQ] = useState(0);
   const [score, setScore] = useState(0);
   const [showResult, setShowResult] = useState(false);
@@ -46,24 +47,24 @@ export default function DiagnosticQuiz({ onComplete }) {
     }, 800);
   };
 
-  const analyzeAndComplete = () => {
-    // 1. Determine Level
-    let level = "Beginner";
-    if (score >= 8) level = "Advanced"; // <--- MATCHES CURRICULUM ENGINE
-    else if (score >= 5) level = "Intermediate";
-
-    // 2. Calculate Stats
+  const analyzeAndComplete = async () => {
+    // 1. Determine Level — now using our AI ML Model!
     const totalTime = performanceLog.reduce((acc, curr) => acc + curr.timeTaken, 0);
     const avgTime = performanceLog.length > 0 ? totalTime / performanceLog.length : 0;
+    const accuracy = Math.round((score / QUESTIONS.length) * 100);
 
-    // 3. Find Weak Areas
+    console.log(`🤖 Assessing Level using ML Model: score=${score}, accuracy=${accuracy}, avgTime=${avgTime}`);
+    const predictedLevel = await predictLearnerLevel(score, accuracy, avgTime, userName, userEmail);
+    console.log(`🧠 Prediction Results: ${predictedLevel}`);
+
+    // 2. Find Weak Areas
     const focusAreas = performanceLog
       .filter(p => !p.isCorrect)
       .map(p => p.focus); // e.g., ["Math", "Algorithms"]
 
     const earnedXp = score * 100;
 
-    onComplete(level, earnedXp, [...new Set(focusAreas)], avgTime);
+    onComplete(predictedLevel, earnedXp, [...new Set(focusAreas)], avgTime);
   };
 
   if (showResult) {

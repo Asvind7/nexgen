@@ -44,7 +44,9 @@ A meticulously modularized curriculum spanning 3 Phases:
 
 ### Backend Architecture
 - **Framework:** Python / FastAPI for high-performance, asynchronous REST endpoints.
-- **AI Core:** `google-genai` (Gemma Model) for all neural parsing, grading, and diagnostics.
+- **AI Core:** `google-genai` (Gemma 3) for all neural parsing, grading, and diagnostics.
+- **Machine Learning:** `scikit-learn` Random Forest model for predictive level adjustment and performance analysis.
+- **Database:** MySQL for robust user management and telemetry persistence (replacing legacy SQLite).
 - **Runtime Environment:** Uvicorn ASGI server.
 - **Data Engineering Context:** Includes `pandas` and `numpy` natively to support execution of Phase 3 Data Science missions.
 
@@ -70,9 +72,11 @@ graph TD
     subgraph Backend [FastAPI Server]
         API[REST Endpoints]
         GEN[Google GenAI Native]
-        DB[(SQLite Datastore)]
+        ML[Random Forest Model]
+        DB[(MySQL Datastore)]
         
         API -->|Processes Prompts| GEN
+        API -->|Predicts Level via| ML
         API -->|Logs Telemetry| DB
     end
 
@@ -80,6 +84,7 @@ graph TD
     TE -- "AI Prompts (JSON)" --> API
     API -- "Evaluated Logic / JSON" --> TE
     BA -- "User Code & Telemetry" --> TE
+    API -- "Retrains on Event" --> ML
 ```
 
 ---

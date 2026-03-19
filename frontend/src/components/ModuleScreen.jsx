@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import {
     generateLessonContent, evaluateAnswer, explainError,
-    gradeUserCode, generateHint
+    gradeUserCode, generateHint, getAdaptivePersona
 } from '../services/TeacherEngine';
 
 // Syntax Highlighting
@@ -86,8 +86,9 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
     }, [activeSubLesson, mode]);
 
     useEffect(() => {
-        setPersona(hearts < 2 ? "MENTOR" : "RIVAL");
-    }, [hearts]);
+        const p = getAdaptivePersona(hearts, user.mentor);
+        setPersona(p);
+    }, [hearts, user.mentor]);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -111,7 +112,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
 
         try {
             const errorContext = req.question ? `Question: ${req.question}\nError: ${req.error}` : req.error;
-            const explanation = await explainError(req.code, errorContext, persona, req.context || "");
+            const explanation = await explainError(req.code, errorContext, persona, user.level, req.context || "");
             setMessages(prev => [...prev, { role: 'ai', content: explanation.message, example: explanation.example, showExample: false, persona: persona }]);
             setQuickChips(["I understand now! Back to Boss Fight 🚀", "Can you explain differently?"]);
         } catch (err) {
@@ -145,7 +146,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
                 setActiveExplanationRequest(null);
             } else {
                 const isCompleted = module.status === 'completed';
-                const data = await generateLessonContent(activeSubLesson, "Beginner", persona, hearts, xp, userName, isCompleted);
+                const data = await generateLessonContent(activeSubLesson, user.level, persona, hearts, xp, userName, isCompleted);
                 setMessages([{ role: 'ai', content: data.message, example: data.example, showExample: false, persona: persona }]);
             }
             setQuickChips(["I understood! 👍", "Can you explain more?"]);
@@ -253,7 +254,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
                 setOutput(`❌ Python Error\n\n${data.error}`);
                 const isExam = module.title.toLowerCase().includes("exam") || module.title.toLowerCase().includes("master") || module.type === 'master';
                 if (!isExam) {
-                    const explanation = await explainError(code, data.error, persona);
+                    const explanation = await explainError(code, data.error, persona, user.level);
                     setMessages(prev => [...prev, { role: 'ai', content: explanation.message, example: explanation.example, showExample: false, persona: persona }]);
                 } else {
                     setMessages(prev => [...prev, { role: 'ai', content: "Syntax Error detected. Logic refinement required. (Assistance restricted during EXAM)", persona: persona }]);
@@ -265,7 +266,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
             const rawOutput = data.output || "";
             const goals = activeSubLesson.learningGoals || `The user must print: "${activeSubLesson.expectedOutput}"`;
             setMessages(prev => [...prev, { role: 'ai', content: "🔍 Analyzing logic...", persona: persona }]);
-            const gradingResult = await gradeUserCode(code, activeSubLesson.title, goals, rawOutput);
+            const gradingResult = await gradeUserCode(code, activeSubLesson.title, goals, user.level, rawOutput);
 
             if (gradingResult.passed) {
                 triggerSuccess(`Correct! ${gradingResult.mentor_feedback}`);
@@ -372,7 +373,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
         setMessages(prev => [...prev, { role: 'user', content: textToSend }]);
         setInput("");
         setLoading(true);
-        const response = await evaluateAnswer("Hint", textToSend, activeSubLesson.context, persona, activeSubLesson.title, activeSubLesson.codeTask, userName);
+        const response = await evaluateAnswer("Hint", textToSend, activeSubLesson.context, persona, user.level, activeSubLesson.title, activeSubLesson.codeTask, userName);
         setMessages(prev => [...prev, { role: 'ai', content: response.message, example: response.example, showExample: false, persona: persona }]);
         setLoading(false);
     };
@@ -381,7 +382,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
         if (!activeSubLesson?.codeTask) return;
         setHintLoading(true);
         try {
-            const hintMsg = await generateHint(activeSubLesson, code, persona);
+            const hintMsg = await generateHint(activeSubLesson, code, persona, user.level);
             setHint(hintMsg);
         } catch (err) {
             setHint("Try looking at your code again!");
@@ -640,7 +641,10 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
 
                         <div className="h-8 w-px bg-slate-800" />
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-1.5 text-blue-400 font-black text-[9px] uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-500/20">
+                                <Sparkles size={10} /> {persona === 'BOSS' ? 'ARCHITECT' : persona === 'RIVAL' ? 'RIVAL' : 'MENTOR'}
+                            </div>
                             <div className="flex items-center gap-1.5 text-red-500 font-black text-xs">
                                 <Heart size={14} fill="currentColor" /> {hearts}
                             </div>
@@ -666,7 +670,10 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
                     <div key={i} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in-up items-end gap-3`}>
                         {/* AI Avatar on Left */}
                         {msg.role !== 'user' && (
-                            <div className={`w-7 h-7 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg mb-1 ${msg.persona === 'RIVAL' ? 'bg-red-500 shadow-red-500/20' : 'bg-emerald-500 shadow-emerald-500/20'}`}>
+                            <div className={`w-7 h-7 md:w-10 md:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-lg mb-1 
+                                ${msg.persona === 'RIVAL' ? 'bg-red-500 shadow-red-500/20' : 
+                                  msg.persona === 'BOSS' ? 'bg-slate-700 shadow-slate-900/20' : 
+                                  'bg-emerald-500 shadow-emerald-500/20'}`}>
                                 <Sparkles size={14} md:size={16} className="text-white" />
                             </div>
                         )}

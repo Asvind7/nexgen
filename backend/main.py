@@ -18,10 +18,13 @@ import hashlib
 import bcrypt
 
 import os
-# ... existing SQLite logic explicitly removed from headers ...
 import json
+import random
 from dotenv import load_dotenv
 import database
+import joblib
+import pandas as pd
+import base64
 
 # Load environment variables
 load_dotenv()
@@ -79,6 +82,13 @@ class SyncRequest(BaseModel):
     email: str = Field(..., description="User's email")
     user_data: dict = Field(..., description="Current state of user dictionary")
 
+class PredictRequest(BaseModel):
+    score: float
+    accuracy: float
+    time_taken: float
+    name: Optional[str] = "Anonymous"
+    email: Optional[str] = "anonymous@test.com"
+
 # --- APP SETUP ---
 app = FastAPI(title=Config.API_TITLE)
 
@@ -120,27 +130,22 @@ chat_limiter = SimpleRateLimiter(Config.RPM_LIMIT)
 def build_system_prompt(topic: str, level: str) -> str:
     """Constructs the pedagogical system prompt based on context."""
     return (
-        f"IDENTITY: **AdaptiveMaster** (Warm Master Mentor) 🧠\n"
+        f"IDENTITY: **AdaptiveMaster** (Supportive Master Mentor) 🧠\n"
         f"CONTEXT: User Level: **{level}** | Current Topic Focus: **{topic}**\n\n"
         
         "### 📜 CORE PHILOSOPHY\n"
-        "- **LEVEL AWARENESS/ADVANCED TOPIC**: If a user asks about a complex topic (e.g., Classes, Modules) that is beyond their current {level} or {topic}:\n"
-        "   1. You **MUST** start your response with this EXACT phrase: 'you are asking the topic which is too adavanced for you anyway I can help you'\n"
-        "   2. Briefly state what the topic is.\n"
-        "   3. Provide a brief answer. ANY Python code you provide MUST be wrapped in triple backticks (```python ... ```) for syntax highlighting.\n"
+        "- **LEVEL AWARENESS**: If a user asks about an advanced concept, respond with: 'That is a brilliant curiosity! While it's a bit beyond our current mission, I love that you're thinking ahead. Here's a quick look:'\n"
         "- **ADAPTIVE HINTS**: Instead of full answers, provide small definitions or nudge-like hints.\n"
         "- **SOCRATIC METHOD**: Guide them to discover the answer. Ask a follow-up question that helps them think.\n\n"
         
         "### 🎯 INSTRUCTIONAL LOOP\n"
-        "1. **ACKNOWLEDGE**: If it's an advanced topic, you MUST use the exact fallback phrase mentioned in the LEVEL AWARENESS rule.\n"
+        "1. **ACKNOWLEDGE**: Stay positive and encouraging at all times.\n"
         "2. **BITE-SIZED DEF**: Provide a 1-sentence definition and a tiny code example wrapped in Markdown backticks.\n"
         "3. **PEDAGOGICAL NUDGE**: Ask a follow up question to guide them back to their current level.\n\n"
         
         "### 🚫 STRICT PROHIBITIONS\n"
         "- **NO OVERWHELMING**: No long paragraphs. No multi-file code blocks.\n"
-        "- **STRICT TOPIC GUARD**: Stay focused on **{topic}** unless the user explicitly asks for something else. If they do, use the 'Advanced Topic' acknowledgment mentioned above.\n"
-        "- **NO SPOILERS**: Don't give full solutions if they are in the middle of a coding mission.\n"
-        "- **BE HUMAN**: No 'As an AI'. Be a supportive, expert human mentor 🐍. Keep emojis sparse but encouraging."
+        "- **BE HUMAN**: Be a supportive, expert human mentor 🐍. Keep emojis sparse but encouraging."
     )
 
 def _execute_safe(code: str, stdin: str = "") -> ExecutionResponse:
@@ -200,6 +205,48 @@ async def signup(payload: SignupRequest):
     finally:
         if conn.open:
             conn.close()
+            
+    # APPEND TO learners_data.csv & dataset.csv
+    try:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        l_path = os.path.join(os.path.dirname(base_dir), 'model_training', 'learners_data.csv')
+        d_path = os.path.join(os.path.dirname(base_dir), 'model_training', 'dataset.csv')
+        
+        # 1. Sync Tracking CSV
+        if not os.path.exists(l_path):
+             with open(l_path, "w", encoding='utf-8') as f:
+                f.write("name,email,score,accuracy,time_taken,level\n")
+        
+        with open(l_path, "a", encoding='utf-8') as f:
+            f.write(f"{payload.name},{payload.email},0,0,0,beginner\n")
+
+        # 2. Sync Training Dataset
+        if os.path.exists(d_path):
+            try:
+                df_existing = pd.read_csv(d_path)
+                next_id = len(df_existing) + 1
+            except:
+                next_id = 1
+                
+            with open(d_path, "a", encoding='utf-8') as f:
+                # Add a baseline entry for the new user
+                f.write(f"\n{next_id},0,0,0,beginner")
+        
+        print(f"📄 New learner recorded and datasets synced: {payload.email} (Sequential ID: {next_id})")
+        
+        # 3. Trigger Automatic Retrain
+        try:
+            from sys import path
+            path.append(os.path.join(os.path.dirname(base_dir), 'model_training'))
+            import train_model
+            asyncio.create_task(asyncio.to_thread(train_model.train_model))
+            print("🚀 Background auto-retrain triggered!")
+        except Exception as e:
+            print(f"⚠️ Retrain trigger failed: {e}")
+
+    except Exception as e:
+        print(f"⚠️ Warning: Could not log signup to CSV: {e}")
+        
     return {"message": "User created successfully"}
 
 @app.post("/auth/login")
@@ -235,6 +282,35 @@ async def sync_data(payload: SyncRequest):
     finally:
         conn.close()
     return {"message": "Data synced"}
+
+@app.get("/leaderboard")
+async def get_leaderboard():
+    conn = database.get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Fetch all users
+            cursor.execute("SELECT name, user_data FROM users")
+            rows = cursor.fetchall()
+            
+            lb = []
+            for row in rows:
+                try:
+                    user_data = json.loads(row['user_data']) if row['user_data'] else {}
+                    xp = user_data.get('xp', 0)
+                    lb.append({"name": row['name'], "xp": xp})
+                except:
+                    lb.append({"name": row['name'], "xp": 0})
+            
+            # Sort by XP descending
+            lb.sort(key=lambda x: x['xp'], reverse=True)
+            
+            # Add rank
+            for i, entry in enumerate(lb):
+                entry['rank'] = i + 1
+                
+            return lb[:10] # Return top 10
+    finally:
+        conn.close()
 
 @app.get("/")
 async def health_check():
@@ -333,6 +409,143 @@ async def execute_code_endpoint(payload: ExecutionRequest):
     except Exception as e:
         print(f"❌ Execution Error: {e}")
         return ExecutionResponse(output="", error=str(e))
+
+@app.post("/predict")
+async def predict_level_endpoint(payload: PredictRequest):
+    """
+    Predicts the learner level based on quiz performance using the trained ML model.
+    """
+    try:
+        # Paths relative to the backend folder
+        base_path = os.path.dirname(__file__)
+        model_file = os.path.join(base_path, "models", "learner_model.joblib")
+        encoder_file = os.path.join(base_path, "models", "label_encoder.joblib")
+        
+        if not os.path.exists(model_file):
+            raise FileNotFoundError("Model files not found in backend/models/")
+
+        # Load model and encoder
+        model = joblib.load(model_file)
+        le = joblib.load(encoder_file)
+
+        # Prepare input
+        input_data = pd.DataFrame([{
+            'score': payload.score,
+            'accuracy': payload.accuracy,
+            'time_taken': payload.time_taken
+        }])
+
+        # Predict
+        prediction_encoded = model.predict(input_data)
+        level_name = le.inverse_transform(prediction_encoded)[0]
+
+        # Log new data to dataset.csv (CRITICAL FOR CONTINUOUS LEARNING)
+        try:
+            # dataset.csv is in model_training folder
+            dataset_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model_training', 'dataset.csv')
+            if os.path.exists(dataset_path):
+                # Using pandas to handle the append safely
+                df_existing = pd.read_csv(dataset_path)
+                next_id = len(df_existing) + 1
+                new_row = pd.DataFrame([{
+                    'learner_id': next_id,
+                    'score': payload.score,
+                    'accuracy': payload.accuracy,
+                    'time_taken': payload.time_taken,
+                    'level': level_name
+                }])
+                new_row.to_csv(dataset_path, mode='a', header=False, index=False)
+                print(f"📊 Dataset updated! User performance recorded as {level_name}")
+                
+            # ALSO UPDATE learners_data.csv (Combined Tracking)
+            l_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'model_training', 'learners_data.csv')
+            if os.path.exists(l_path):
+                # Using append to keep track of every quiz attempt
+                with open(l_path, "a", encoding='utf-8') as f:
+                    # name,email,score,accuracy,time_taken,level
+                    f.write(f"{payload.name},{payload.email},{payload.score},{payload.accuracy},{payload.time_taken},{level_name}\n")
+                print(f"📊 Tracking updated for: {payload.name}")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not log to CSV: {e}")
+
+        return {"level": level_name}
+    except Exception as e:
+        print(f"❌ Prediction Error: {e}")
+        # Rule-based fallback
+        level = "beginner"
+        if payload.score >= 8: level = "advanced"
+        elif payload.score >= 5: level = "intermediate"
+        return {"level": level, "error": str(e)}
+
+@app.get("/leaderboard")
+async def get_leaderboard():
+    """Returns top learners sorted by XP from the database."""
+    conn = database.get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT name, email, user_data FROM users WHERE is_admin = FALSE")
+            rows = cursor.fetchall()
+            
+            leaderboard = []
+            for row in rows:
+                try:
+                    data = json.loads(row['user_data'] or '{}')
+                    xp = data.get('xp', 0)
+                    level = data.get('level', 'Beginner')
+                    leaderboard.append({
+                        "name": row['name'],
+                        "email": row['email'],
+                        "xp": xp,
+                        "level": level
+                    })
+                except:
+                    continue
+            
+            # Sort by XP descending
+            leaderboard.sort(key=lambda x: x['xp'], reverse=True)
+            
+            # Add rank
+            for i, entry in enumerate(leaderboard):
+                entry['rank'] = i + 1
+                
+            return leaderboard[0:10] # Top 10
+    except Exception as e:
+        print(f"❌ Leaderboard Error: {e}")
+        return []
+    finally:
+        conn.close()
+
+@app.get("/dashboard")
+async def get_ml_dashboard():
+    """Returns dataset statistics and base64-encoded graphs for presentation."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    # Graphs are stored in the model_training folder
+    graphs_dir = os.path.join(os.path.dirname(base_dir), 'model_training', 'graphs')
+    dataset_path = os.path.join(os.path.dirname(base_dir), 'model_training', 'dataset.csv')
+    
+    try:
+        # 1. Dataset Stats
+        df = pd.read_csv(dataset_path)
+        stats = {
+            "total_learners": len(df),
+            "avg_accuracy": float(df['accuracy'].mean()),
+            "avg_score": float(df['score'].mean()),
+            "level_counts": df['level'].value_counts().to_dict()
+        }
+        
+        # 2. Collect Graphs as Base64
+        graphs = {}
+        if os.path.exists(graphs_dir):
+            for filename in os.listdir(graphs_dir):
+                if filename.endswith(".png"):
+                    with open(os.path.join(graphs_dir, filename), "rb") as img_file:
+                        encoded_string = base64.b64encode(img_file.read()).decode('utf-8')
+                        graphs[filename] = f"data:image/png;base64,{encoded_string}"
+        
+        return {"stats": stats, "graphs": graphs}
+    except Exception as e:
+        print(f"❌ Dashboard Error: {e}")
+        return {"error": str(e)}
 
 if __name__ == "__main__":
     print(f"🚀 Starting Backend on {Config.HOST}:{Config.PORT}")

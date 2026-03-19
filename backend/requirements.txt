@@ -2,8 +2,10 @@ fastapi
 uvicorn
 pydantic
 google-genai
-pandas
+scikit-learn
+joblib
 numpy
+pandas
 requests
 python-dotenv
 pymysql

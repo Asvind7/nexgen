@@ -18,18 +18,9 @@ export const generateSyllabus = (level, earnedXp, avgTime, isAdmin = false, comp
     const project = weekData.project;
     const exam = weekData.milestone_exam;
 
-    // Determine target phase based on level
-    let targetPhase = "Phase 1";
-    if (level === "Intermediate") targetPhase = "Phase 2";
-    if (level === "Advanced") targetPhase = "Phase 3";
-
-    const phases = ["Phase 1", "Phase 2", "Phase 3"];
-    const currentPhaseIdx = phases.indexOf(phaseName);
-    const targetPhaseIdx = phases.indexOf(targetPhase);
-
-    // Regions before the target phase are considered "completed by placement"
-    // BUT if admin, we want to see them as playable/active nodes instead of auto-completed.
-    const isRegionSkipped = !isAdmin && currentPhaseIdx < targetPhaseIdx;
+    // Everyone starts from the beginning now, regardless of level.
+    // Teaching style is what adapts, not the starting point.
+    const isRegionSkipped = false;
 
     if (isAdmin) console.log(`Week ${weekKey} (Phase ${phaseName}) - Admin Unlocked`);
 
