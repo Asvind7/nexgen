@@ -29,13 +29,20 @@ const PERSONAS = {
 };
 
 // --- 2. ADAPTIVE PERSONA LOGIC ---
-export const getAdaptivePersona = (hearts, manualMentor) => {
-  if (manualMentor && manualMentor !== "Classic") {
+export const getAdaptivePersona = (hearts, manualMentor, userLevel = "Beginner") => {
+  // If user manually chose a mentor in settings, respect it
+  if (manualMentor && manualMentor !== "Classic" && manualMentor !== "Default") {
     if (manualMentor === "Professional") return "BOSS";
     if (manualMentor === "Playful") return "RIVAL";
   }
-  if (hearts <= 1) return "MENTOR";
-  return "RIVAL";
+
+  // Adaptive Logic based on Hearts and Level
+  if (hearts <= 1) return "MENTOR"; // Emergent support on low health
+
+  const level = userLevel.toLowerCase();
+  if (level === 'advanced') return "BOSS";
+  if (level === 'intermediate') return "RIVAL";
+  return "MENTOR"; // Default for Beginner
 };
 
 // --- 3. THE LESSON GENERATOR (Explain -> Analogy -> Task) ---

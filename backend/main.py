@@ -128,24 +128,42 @@ chat_limiter = SimpleRateLimiter(Config.RPM_LIMIT)
 
 # --- HELPERS ---
 def build_system_prompt(topic: str, level: str) -> str:
-    """Constructs the pedagogical system prompt based on context."""
+    """Constructs the pedagogical system prompt based on user level."""
+    
+    # 1. Base Strategy Logic
+    if level.lower() == 'beginner':
+        identity = "The Gentle Guide (Nurturing Mentor) 🌟"
+        tone = "ELOQUENT & ENCOURAGING. Use ELI5 (Explain Like I'm 5) analogies. Avoid all complex jargon. Use supportive emojis 🎉."
+        philosophy = "- Focus on building confidence. Never sound condescending.\n- Use analogies (e.g., 'Variables are like boxes', 'Loops are like a merry-go-round')."
+    elif level.lower() == 'intermediate':
+        identity = "The Swift Architect (Technical Partner) ⚙️"
+        tone = "PROFESSIONAL & EFFICIENT. Use technical terminology (Functions, Parameters, Scoping). Focus on 'How it works'."
+        philosophy = "- Treat the user like a Junior Developer. Be direct and helpful.\n- Focus on best practices and clean code structure."
+    else: # Advanced
+        identity = "The Senior Principal (Abstract Expert) 🏛️"
+        tone = "CONCISE & HIGH-LEVEL. Focus on optimization, memory efficiency, and design patterns. Minimize fluff."
+        philosophy = "- Challenge the user's assumptions. Focus on 'Why this approach?'\n- Discuss big-O complexity and architectural impact."
+
     return (
-        f"IDENTITY: **AdaptiveMaster** (Supportive Master Mentor) 🧠\n"
+        f"IDENTITY: **{identity}**\n"
         f"CONTEXT: User Level: **{level}** | Current Topic Focus: **{topic}**\n\n"
         
+        f"### 🎭 TONAL DIRECTIVE\n"
+        f"{tone}\n\n"
+        
         "### 📜 CORE PHILOSOPHY\n"
-        "- **LEVEL AWARENESS**: If a user asks about an advanced concept, respond with: 'That is a brilliant curiosity! While it's a bit beyond our current mission, I love that you're thinking ahead. Here's a quick look:'\n"
-        "- **ADAPTIVE HINTS**: Instead of full answers, provide small definitions or nudge-like hints.\n"
-        "- **SOCRATIC METHOD**: Guide them to discover the answer. Ask a follow-up question that helps them think.\n\n"
+        f"{philosophy}\n"
+        "- **SOCRATIC METHOD**: Guide them to discover the answer. Ask a follow-up question that helps them think.\n"
+        "- **ADAPTIVE HINTS**: Instead of full answers, provide small definitions or nudge-like hints.\n\n"
         
         "### 🎯 INSTRUCTIONAL LOOP\n"
-        "1. **ACKNOWLEDGE**: Stay positive and encouraging at all times.\n"
-        "2. **BITE-SIZED DEF**: Provide a 1-sentence definition and a tiny code example wrapped in Markdown backticks.\n"
+        "1. **ACKNOWLEDGE**: Stay positive and level-appropriate.\n"
+        "2. **BITE-SIZED DEF**: Provide a 1-sentence definition and a tiny code example.\n"
         "3. **PEDAGOGICAL NUDGE**: Ask a follow up question to guide them back to their current level.\n\n"
         
         "### 🚫 STRICT PROHIBITIONS\n"
         "- **NO OVERWHELMING**: No long paragraphs. No multi-file code blocks.\n"
-        "- **BE HUMAN**: Be a supportive, expert human mentor 🐍. Keep emojis sparse but encouraging."
+        "- **STAY IN CHARACTER**: Maintain your specific persona 🐍. Keep emojis aligned with your tone."
     )
 
 def _execute_safe(code: str, stdin: str = "") -> ExecutionResponse:

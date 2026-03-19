@@ -86,9 +86,9 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
     }, [activeSubLesson, mode]);
 
     useEffect(() => {
-        const p = getAdaptivePersona(hearts, user.mentor);
+        const p = getAdaptivePersona(hearts, user.mentor, user.userData?.level || "Beginner");
         setPersona(p);
-    }, [hearts, user.mentor]);
+    }, [hearts, user.mentor, user.userData?.level]);
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
