@@ -37,3 +37,37 @@ export const predictLearnerLevel = async (score, accuracy, timeTaken, name = "Us
     return "Beginner";
   }
 };
+
+/**
+ * Individualized Boss Session Analysis
+ */
+export const analyzeBossSession = async (sessionData) => {
+  try {
+    const response = await fetch(`${API_URL}/predict/boss`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sessionData)
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("Boss Session Analysis Failed:", error);
+    return { level: "beginner", error: error.message };
+  }
+};
+
+/**
+ * Granular Interaction Analysis (every message/move)
+ */
+export const analyzeInteraction = async (interactionData) => {
+  try {
+    const response = await fetch(`${API_URL}/predict/interaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(interactionData)
+    });
+    return await response.json();
+  } catch (error) {
+    console.error("Interaction Analysis Failed:", error);
+    return { level: "beginner", error: error.message };
+  }
+};

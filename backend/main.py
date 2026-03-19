@@ -89,6 +89,24 @@ class PredictRequest(BaseModel):
     name: Optional[str] = "Anonymous"
     email: Optional[str] = "anonymous@test.com"
 
+class BossQuestionTelemetry(BaseModel):
+    score: float
+    accuracy: float
+    time_taken: float
+
+class BossSessionRequest(BaseModel):
+    email: str
+    name: str
+    module_id: str
+    telemetry: List[BossQuestionTelemetry]
+
+class InteractionRequest(BaseModel):
+    email: str
+    type: str # 'message', 'step_move', 'run_code'
+    score: Optional[float] = 0
+    accuracy: Optional[float] = 0
+    time_taken: Optional[float] = 0
+
 # --- APP SETUP ---
 app = FastAPI(title=Config.API_TITLE)
 
@@ -494,6 +512,141 @@ async def predict_level_endpoint(payload: PredictRequest):
         if payload.score >= 8: level = "advanced"
         elif payload.score >= 5: level = "intermediate"
         return {"level": level, "error": str(e)}
+
+@app.post("/predict/boss")
+async def predict_boss_level(payload: BossSessionRequest):
+    """
+    Individualized Boss Arena Training & Prediction.
+    Analyzes all questions in a single boss session to determine user level
+    and adapts teacher behavior for the current user.
+    """
+    try:
+        # 1. Calculate Session Aggregates
+        if not payload.telemetry:
+            return {"level": "beginner", "score": 0, "accuracy": 0}
+            
+        total_score = sum(q.score for q in payload.telemetry)
+        avg_accuracy = sum(q.accuracy for q in payload.telemetry) / len(payload.telemetry)
+        avg_time = sum(q.time_taken for q in payload.telemetry) / len(payload.telemetry)
+        
+        # 2. Individual Data Analysis (Random Forest Inference)
+        base_path = os.path.dirname(__file__)
+        model_file = os.path.join(base_path, "models", "learner_model.joblib")
+        encoder_file = os.path.join(base_path, "models", "label_encoder.joblib")
+        
+        level_name = "beginner"
+        if os.path.exists(model_file):
+            model = joblib.load(model_file)
+            le = joblib.load(encoder_file)
+            
+            # Predict based on session aggregates
+            input_df = pd.DataFrame([{
+                'score': total_score,
+                'accuracy': avg_accuracy,
+                'time_taken': avg_time
+            }])
+            prediction = model.predict(input_df)
+            level_name = le.inverse_transform(prediction)[0]
+
+        # 3. Log INDIVIDUAL PERFORMANCE to Database
+        conn = database.get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO boss_performance 
+                    (user_email, module_id, score, accuracy, time_taken, predicted_level) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (payload.email, payload.module_id, total_score, avg_accuracy, avg_time, level_name))
+            conn.commit()
+            
+            # 4. PERSONALIZED GROWTH SCORE
+            # Fetch previous performance to see progress
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT AVG(score) as avg_score, AVG(accuracy) as avg_acc 
+                    FROM boss_performance 
+                    WHERE user_email = %s AND module_id = %s
+                """, (payload.email, payload.module_id))
+                history = cursor.fetchone()
+                
+            growth_score = 0
+            if history and history['avg_score'] is not None:
+                growth_score = total_score - history['avg_score']
+                
+        finally:
+            conn.close()
+
+        # 5. Adapt Teacher Persona (Backend Influence)
+        adaptation = "MENTOR" # Default
+        if level_name == 'advanced' or total_score > 8:
+            adaptation = "BOSS"
+        elif level_name == 'intermediate' or total_score > 4:
+            adaptation = "RIVAL"
+            
+        return {
+            "level": level_name,
+            "session_score": total_score,
+            "session_accuracy": avg_accuracy,
+            "growth_indicator": growth_score,
+            "recommended_persona": adaptation,
+            "analysis": f"User {payload.email} analyzed with {len(payload.telemetry)} data points for {payload.module_id}."
+        }
+
+    except Exception as e:
+        print(f"❌ Boss Prediction Error: {e}")
+        traceback.print_exc()
+        return {"level": "beginner", "error": str(e)}
+
+@app.post("/predict/interaction")
+async def predict_interaction(payload: InteractionRequest):
+    """
+    Real-time Granular Interaction Analysis.
+    Logs each message or movement and predicts level adjustment.
+    """
+    try:
+        conn = database.get_db_connection()
+        try:
+            # 1. Load Model for inference
+            base_path = os.path.dirname(__file__)
+            model_file = os.path.join(base_path, "models", "learner_model.joblib")
+            encoder_file = os.path.join(base_path, "models", "label_encoder.joblib")
+            
+            level_name = "beginner"
+            if os.path.exists(model_file):
+                model = joblib.load(model_file)
+                le = joblib.load(encoder_file)
+                input_df = pd.DataFrame([{
+                    'score': payload.score,
+                    'accuracy': payload.accuracy,
+                    'time_taken': payload.time_taken
+                }])
+                prediction = model.predict(input_df)
+                level_name = le.inverse_transform(prediction)[0]
+
+            # 2. Log to user_interactions
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO user_interactions 
+                    (user_email, interaction_type, score, accuracy, time_taken, predicted_level) 
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                """, (payload.email, payload.type, payload.score, payload.accuracy, payload.time_taken, level_name))
+            conn.commit()
+            
+            # 3. Micro-adaptation logic
+            persona = "MENTOR"
+            if level_name == "advanced": persona = "BOSS"
+            elif level_name == "intermediate": persona = "RIVAL"
+            
+            return {
+                "level": level_name,
+                "recommended_persona": persona,
+                "status": "logged"
+            }
+        finally:
+            conn.close()
+    except Exception as e:
+        print(f"❌ Interaction Sync Error: {e}")
+        return {"level": "beginner", "error": str(e)}
 
 @app.get("/leaderboard")
 async def get_leaderboard():

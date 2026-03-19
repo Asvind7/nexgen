@@ -64,7 +64,27 @@ def init_db():
                     password_hash VARCHAR(255) NOT NULL,
                     is_admin BOOLEAN DEFAULT FALSE,
                     user_data LONGTEXT
-                )
+                );
+                CREATE TABLE IF NOT EXISTS boss_performance (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    module_id VARCHAR(255) NOT NULL,
+                    score FLOAT NOT NULL,
+                    accuracy FLOAT NOT NULL,
+                    time_taken FLOAT NOT NULL,
+                    predicted_level VARCHAR(50),
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE TABLE IF NOT EXISTS user_interactions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    interaction_type VARCHAR(50) NOT NULL, -- 'message', 'step_move', 'run_code'
+                    score FLOAT,
+                    accuracy FLOAT,
+                    time_taken FLOAT,
+                    predicted_level VARCHAR(50),
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
             ''')
             # Add is_admin column to existing tables if it doesn't exist yet
             try:

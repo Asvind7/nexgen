@@ -11,8 +11,9 @@ import { handleAutoIndent } from '../../utils/editorUtils';
 import {
     generateBossExam, diagnoseLearnerState, selectNextQuestion, gradeUserCode
 } from '../../services/TeacherEngine';
+import { analyzeBossSession, analyzeInteraction } from '../../services/MLService';
 
-const BossArena = ({ onComplete, moduleTitle, hearts, setHearts, setXp, moduleId, onReTeach, onBack, subLessons, onVictory, isAdmin = false }) => {
+const BossArena = ({ user, onComplete, moduleTitle, hearts, setHearts, setXp, moduleId, onReTeach, onBack, subLessons, onVictory, isAdmin = false }) => {
     // STATE: Smart Queue (Duolingo Style)
     const [questionQueue, setQuestionQueue] = useState([]);
     const [qIndex, setQIndex] = useState(0);
@@ -46,6 +47,9 @@ const BossArena = ({ onComplete, moduleTitle, hearts, setHearts, setXp, moduleId
 
     // NEW: Test Cases Tracking
     const [testResults, setTestResults] = useState([]);
+
+    // NEW: Session Telemetry for individualized RF Training
+    const [sessionTelemetry, setSessionTelemetry] = useState([]);
 
     // 🆕 INDENTATION HANDLER
     const handleEditorKeyDown = (e) => handleAutoIndent(e, code, setCode);
@@ -231,6 +235,24 @@ const BossArena = ({ onComplete, moduleTitle, hearts, setHearts, setXp, moduleId
             });
         }
 
+        // NEW: Real-time Granular Interaction Analysis (per question)
+        analyzeInteraction({
+            email: user.email,
+            type: 'boss_question',
+            score: isCorrect ? 1.0 : (isPartial ? 0.5 : 0),
+            accuracy: isCorrect ? 1.0 : (isPartial ? 0.5 : 0),
+            time_taken: timeTaken
+        }).then(res => {
+            console.log("📊 Interaction Analysis:", res);
+        });
+
+        // Store for aggregate session analysis
+        setSessionTelemetry(prev => [...prev, {
+            score: isCorrect ? 1.0 : (isPartial ? 0.5 : 0),
+            accuracy: isCorrect ? 1.0 : (isPartial ? 0.5 : 0),
+            time_taken: timeTaken
+        }]);
+
         setQHistory(prev => {
             const newHist = [...prev];
             newHist[qIndex] = isCorrect ? 'correct' : (isPartial ? 'partial' : 'wrong');
@@ -283,6 +305,16 @@ const BossArena = ({ onComplete, moduleTitle, hearts, setHearts, setXp, moduleId
             setSelectedOption(null);
             setStartTime(Date.now());
         } else {
+            // END OF SESSION: Run Individualized Global Analysis
+            analyzeBossSession({
+                email: user.email,
+                name: user.name,
+                module_id: moduleId,
+                telemetry: sessionTelemetry
+            }).then(sessionResult => {
+                console.log("🏆 Boss Arena Comprehensive Analysis:", sessionResult);
+                // Can be used to update user state or show a 'Personal growth' metric
+            });
             onComplete();
         }
     };

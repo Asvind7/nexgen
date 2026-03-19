@@ -7,6 +7,7 @@ import {
     generateLessonContent, evaluateAnswer, explainError,
     gradeUserCode, generateHint, getAdaptivePersona
 } from '../services/TeacherEngine';
+import { analyzeInteraction } from '../services/MLService';
 
 // Syntax Highlighting
 import Editor from 'react-simple-code-editor';
@@ -57,6 +58,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
     const [activeExplanationRequest, setActiveExplanationRequest] = useState(null);
     const [isExplainingError, setIsExplainingError] = useState(false);
 
+    const [stepStartTime, setStepStartTime] = useState(Date.now()); // NEW: Track time per step interaction
     const chatEndRef = useRef(null);
 
     // FORCE SUB-LESSONS REFRESH
@@ -321,6 +323,17 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
         if (msg !== "Correct!") {
             setMessages(prev => [...prev, { role: 'ai', content: isPerfect ? `🏆 IMPRESSIVE! A perfect run. ${msg}` : msg, persona: persona }]);
         }
+
+        // NEW: Real-time Granular Interaction Analysis (Code Run Success)
+        analyzeInteraction({
+            email: user.email,
+            type: 'run_code',
+            score: 1.0,
+            accuracy: 1.0,
+            time_taken: (Date.now() - stepStartTime) / 1000
+        }).then(res => {
+            if (res.recommended_persona) setPersona(res.recommended_persona);
+        });
     };
 
     const handleNextLevel = () => {
@@ -336,7 +349,19 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
         }
 
         if (currentStep < subLessons.length - 1) {
+            // NEW: Granular Analysis on Step Transition
+            analyzeInteraction({
+                email: user.email,
+                type: 'step_move',
+                score: 1.0,
+                accuracy: 1.0,
+                time_taken: (Date.now() - stepStartTime) / 1000
+            }).then(res => {
+                if (res.recommended_persona) setPersona(res.recommended_persona);
+            });
+
             setCurrentStep(prev => prev + 1);
+            setStepStartTime(Date.now()); // Reset timer for next step
         } else {
             setMode("boss_intro");
         }
@@ -373,6 +398,18 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
         setMessages(prev => [...prev, { role: 'user', content: textToSend }]);
         setInput("");
         setLoading(true);
+
+        // NEW: Real-time Granular Interaction Analysis (Message Sent)
+        analyzeInteraction({
+            email: user.email,
+            type: 'message',
+            score: 0.5, // Placeholder: messages aren't graded but indicate engagement
+            accuracy: 1.0,
+            time_taken: (Date.now() - stepStartTime) / 1000
+        }).then(res => {
+            if (res.recommended_persona) setPersona(res.recommended_persona);
+        });
+
         const response = await evaluateAnswer("Hint", textToSend, activeSubLesson.context, persona, user.level, activeSubLesson.title, activeSubLesson.codeTask, userName);
         setMessages(prev => [...prev, { role: 'ai', content: response.message, example: response.example, showExample: false, persona: persona }]);
         setLoading(false);
@@ -488,6 +525,7 @@ export default function ModuleScreen({ module, onBack, onComplete, isAdmin = fal
         }
 
         return <BossArena
+            user={user}
             onComplete={() => { setMode("victory_lap"); setHasDefeatedBoss(true); setXp(x => x + 200); setMissionSuccess(true); }}
             onReTeach={(req) => req ? handleExplainErrorFlow(req) : setMode("lecture")}
             onBack={onBack}
