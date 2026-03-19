@@ -32,6 +32,12 @@ A meticulously modularized curriculum spanning 3 Phases:
 - **Phase 2: Data Structures & Architecture** (Lists, Dictionaries, RegEx, File I/O)
 - **Phase 3: Deep Logic & Data Science** (OOP, Decorators, Pandas, NumPy, Data Cleaning)
 
+### 4. The High-Resolution Telemetry Engine (RF-Inference)
+The system tracks every user action at a sub-second scale:
+- **Interaction Logging**: Every AI chat message and curriculum step change is logged with precision timing.
+- **Micro-Adaptation**: Random Forest inference runs on each interaction to instantly pivot AI persona behavior and difficulty.
+- **Global Session Grading**: At the end of every exam, the system calculates a specialized **"Individualized Growth Score"** by analyzing the entire session's behavioral profile.
+
 ---
 
 ## 🛠 Tech Stack
@@ -76,15 +82,16 @@ graph TD
         DB[(MySQL Datastore)]
         
         API -->|Processes Prompts| GEN
-        API -->|Predicts Level via| ML
-        API -->|Logs Telemetry| DB
+        API -->|Predicts Level / Persona via| ML
+        API -->|Logs High-Res Telemetry| DB
     end
 
     %% Interactions
     TE -- "AI Prompts (JSON)" --> API
     API -- "Evaluated Logic / JSON" --> TE
     BA -- "User Code & Telemetry" --> TE
-    API -- "Retrains on Event" --> ML
+    MS -- "Real-Time Step Telemetry" --> API
+    API -- "Continuous Global Learning" --> ML
 ```
 
 ---

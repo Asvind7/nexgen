@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Award, BrainCircuit, Clock, Sparkles } from 'lucide-react';
+import { Award, BrainCircuit, Clock, Sparkles, CheckCircle, XCircle } from 'lucide-react';
 import { predictLearnerLevel } from '../services/MLService';
 
 import { QUESTIONS as EXTERNAL_QUESTIONS } from '../data/questions';

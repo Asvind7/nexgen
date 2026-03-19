@@ -119,9 +119,9 @@ export default function App() {
     }
     const nameToShow = displayName || username;
     if (userData && Object.keys(userData).length > 0) {
-      setUser(prev => ({ ...prev, ...userData, name: nameToShow }));
+      setUser(prev => ({ ...prev, ...userData, name: nameToShow, email: username }));
     } else {
-      setUser(prev => ({ ...prev, name: nameToShow }));
+      setUser(prev => ({ ...prev, name: nameToShow, email: username }));
     }
   };
 

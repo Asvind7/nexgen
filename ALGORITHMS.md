@@ -33,6 +33,16 @@ This document outlines the high-level computational strategies and pedagogical a
 - **Function**: Instead of primitive string-matching or regex, the system uses Gemma 3 to evaluate the *abstract logic tree* of the code.
 - **Benefit**: It correctly interprets solutions even if variable names differ or the user uses unconventional (but valid) syntax patterns.
 
+### **E. Individualized Session Profile Analysis (Random Forest)**
+- **Algorithm**: Global Session Inference.
+- **Function**: At the conclusion of a Boss Arena, the system runs an aggregate Random Forest analysis on *all* question telemetry from the session.
+- **Innovation**: It calculates a specialized **"Growth Score"** by comparing the current session's density of correct answers and speed against the user's historical performance in that specific module.
+
+### **F. Granular Real-Time Interaction Telemetry**
+- **Algorithm**: High-Resolution Movement Tracking.
+- **Function**: Every single **chat message**, **code run**, and **syllabus movement** is logged to the `user_interactions` table.
+- **Micro-Adaptation**: Each movement triggers a real-time micro-inference on the RF model to instantly adjust the AI's tutor persona (e.g., pivoting from MENTOR to RIVAL within seconds) based on newly detected proficiency trends.
+
 ---
 
 ## 🌟 2. Key Features

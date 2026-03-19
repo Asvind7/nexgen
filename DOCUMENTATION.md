@@ -37,7 +37,12 @@ The "Pedagogical Guardrail" system.
 ### **C. Predictive Engine (`train_model.py` / `/predict`)**
 Uses a **Random Forest Classifier** trained on student telemetry.
 - **Feature Set**: `score` (quiz performance), `accuracy` (pass/fail ratio), and `time_taken` (cognitive load).
-- **Output**: Predicts the student’s mastery level (Beginner, Intermediate, Advanced) with >95% accuracy based on a 70-user longitudinal dataset.
+- **Output**: Predicts the student’s mastery level (Beginner, Intermediate, Advanced) with >95% accuracy.
+
+### **D. Real-Time Interaction Analyzer (`/predict/interaction`)**
+The "Sub-Second Brain":
+- **Micro-Inference**: On every single user message or curriculum movement, the frontend calls the backend to run a quick RF inference.
+- **Persona Adaptation**: If the model detects a sudden shift in cognitive load (e.g., student takes 5x longer than usual), it instantly instructs the `TeacherEngine` to pivot the AI's persona to **MENTOR** to provide emotional support and scaffolding.
 
 ---
 
@@ -57,6 +62,8 @@ The "Boss Arena" is where learning happens through struggle.
 
 ### **MySQL Database Schema**
 - **`users` Table**: Stores credentials using Bcrypt hashing and a JSON `user_data` blob.
+- **`user_interactions` Table**: High-resolution telemetry logging every chat message, code execution, and step progress.
+- **`boss_performance` Table**: Aggregated session-level analytics for every Boss Arena attempt, tracking global proficiency growth.
 - **`user_data` Blob**: Contains the "Digital Twin" of the learner:
     - `xp`: Total experience earned.
     - `hearts`: Current health (gamified motivation).
